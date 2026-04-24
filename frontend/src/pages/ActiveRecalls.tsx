@@ -30,7 +30,17 @@ export default function ActiveRecalls() {
 
   const loadRecalls = async () => {
     try {
-      const res = await api.get("/recalls", { params: { limit: 100 } });
+      const params: any = { limit: 100 };
+      // Pass source filter to API
+      if (filters.agency !== "All Agencies") {
+        const agencyMap: Record<string, string> = {
+          "FDA": "FDA_FOOD",
+          "CPSC": "CPSC",
+          "Health Canada": "HEALTH_CANADA",
+        };
+        params.source = agencyMap[filters.agency];
+      }
+      const res = await api.get("/recalls", { params });
       setRecalls(res.data.items || []);
     } catch (e) {
       console.error(e);
@@ -209,8 +219,8 @@ export default function ActiveRecalls() {
                       <tr key={recall.id} className="hover:bg-surface/50 transition-colors">
                         <td className="px-6 py-5 align-top">
                           <span className="text-sm font-semibold text-primary">
-                            {recall.published_date
-                              ? new Date(recall.published_date).toLocaleDateString()
+                            {recall.published_at
+                              ? new Date(recall.published_at).toLocaleDateString()
                               : "—"}
                           </span>
                         </td>

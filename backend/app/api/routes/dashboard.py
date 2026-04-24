@@ -143,6 +143,7 @@ def get_incident_detail(
             "hazard_description": incident.recall.hazard_description,
             "recommended_action": incident.recall.recommended_action,
             "published_at": incident.recall.published_at.isoformat() if incident.recall.published_at else None,
+            "source_url": incident.recall.source_url,
         },
         "severity": incident.severity.value,
         "status": incident.status.value,

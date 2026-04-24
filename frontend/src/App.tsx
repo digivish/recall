@@ -26,6 +26,7 @@ export default function App() {
         <Route path="/settings" element={<Settings />} />
         <Route path="/reports/evidence" element={<ReportsEvidence />} />
         <Route path="/recalls" element={<ActiveRecalls />} />
+        <Route path="/recalls/:id" element={<RecallDetail />} />
       </Routes>
     </BrowserRouter>
   );

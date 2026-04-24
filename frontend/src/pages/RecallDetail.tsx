@@ -5,6 +5,7 @@ import api, { clearTokens } from "../lib/api";
 export default function RecallDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const isRecallPage = window.location.pathname.startsWith("/recalls/");
   const [incident, setIncident] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [autoPause, setAutoPause] = useState(true);
@@ -15,8 +16,40 @@ export default function RecallDetail() {
 
   const loadIncident = async () => {
     try {
-      const res = await api.get(`/dashboard/${id}`);
-      setIncident(res.data);
+      // Check if we're coming from /recalls or /dashboard
+      const isRecallPage = window.location.pathname.startsWith("/recalls/");
+      
+      let data;
+      if (isRecallPage) {
+        // Fetch from /recalls/{id} - returns recall directly (flat structure)
+        const res = await api.get(`/recalls/${id}`);
+        const recall = res.data;
+        // Normalize to incident structure for backward compatibility
+        data = {
+          id: recall.id,
+          recall: {
+            id: recall.id,
+            title: recall.title,
+            source_name: recall.source_name,
+            source_url: recall.source_url,
+            product_name: recall.product_name,
+            issuing_body: recall.issuing_body,
+            hazard_description: recall.hazard_description,
+            recommended_action: recall.recommended_action,
+            published_at: recall.published_at,
+          },
+          severity: recall.severity,
+          status: recall.status,
+          acknowledged_at: recall.acknowledged_at,
+          sku: null,
+          matched_skus: recall.matched_skus || [],
+        };
+      } else {
+        // Fetch from /dashboard/{id} - returns incident with nested recall
+        const res = await api.get(`/dashboard/${id}`);
+        data = res.data;
+      }
+      setIncident(data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -69,7 +102,7 @@ export default function RecallDetail() {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate(isRecallPage ? "/recalls" : "/dashboard")}
               className="flex items-center gap-1 text-slate-500 hover:text-slate-900 transition-colors"
             >
               <span className="material-symbols-outlined">arrow_back</span>
@@ -102,7 +135,7 @@ export default function RecallDetail() {
             {[
               { icon: "dashboard", label: "Dashboard", href: "/dashboard" },
               { icon: "inventory_2", label: "Inventory", href: "/inventory" },
-              { icon: "warning", label: "Alerts", href: "/alerts", badge: true },
+              { icon: "warning", label: "Active Recalls", href: "/recalls", badge: true },
               { icon: "hub", label: "Integrations", href: "/settings/integrations" },
               { icon: "settings", label: "Settings", href: "/settings" },
             ].map((item) => (
@@ -148,6 +181,17 @@ export default function RecallDetail() {
                 </h1>
                 <p className="text-on-surface-variant mt-1 font-medium">
                   Source: {incident.recall.source_name}
+                  {incident.recall.source_url && (
+                    <a
+                      href={incident.recall.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 text-primary underline hover:text-on-primary-container"
+                    >
+                      View Original
+                      <span className="material-symbols-outlined text-sm ml-1">open_in_new</span>
+                    </a>
+                  )}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -179,7 +223,7 @@ export default function RecallDetail() {
                     <div>
                       <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Issue Date</p>
                       <p className="text-sm font-semibold text-on-surface">
-                        {incident.recall.published_at ? new Date(incident.recall.published_at).toLocaleDateString() : "—"}
+                        {incident.recall?.published_at ? new Date(incident.recall.published_at).toLocaleDateString() : "—"}
                       </p>
                     </div>
                     <div>
@@ -188,24 +232,28 @@ export default function RecallDetail() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">SKU / ASIN</p>
-                      <p className="text-sm font-semibold text-on-surface">{incident.sku.asin}</p>
+                      <p className="text-sm font-semibold text-on-surface">
+                        {incident.sku?.asin || incident.matched_skus?.[0]?.asin || "—"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Product Name</p>
-                      <p className="text-sm font-semibold text-on-surface">{incident.sku.name}</p>
+                      <p className="text-sm font-semibold text-on-surface">
+                        {incident.sku?.name || incident.matched_skus?.[0]?.name || incident.recall?.product_name || "—"}
+                      </p>
                     </div>
                   </div>
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-sm font-bold text-primary uppercase tracking-tight mb-2">Reason for Recall</h3>
                       <p className="text-sm leading-relaxed text-on-surface-variant">
-                        {incident.recall.hazard_description || "No description available."}
+                        {incident.recall?.hazard_description || "No description available."}
                       </p>
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-primary uppercase tracking-tight mb-2">Recommendation</h3>
                       <ul className="list-disc list-inside text-sm space-y-2 text-on-surface-variant">
-                        {incident.recall.recommended_action
+                        {incident.recall?.recommended_action
                           ? incident.recall.recommended_action.split("\n").map((line: string, i: number) => (
                               <li key={i}>{line}</li>
                             ))

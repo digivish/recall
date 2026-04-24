@@ -17,15 +17,39 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncingShopify, setSyncingShopify] = useState(false);
+  const [matching, setMatching] = useState(false);
+  const [matchedRun, setMatchedRun] = useState(false);
   const [source, setSource] = useState("All Platforms");
   const [status, setStatus] = useState("All Statuses");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const limit = 15;
 
+  const runMatching = async (silent = false) => {
+    setMatching(true);
+    try {
+      const res = await api.post("/matching/match");
+      if (!silent) alert(`Matched ${res.data.matched} products`);
+      loadStats();
+    } catch (e) {
+      console.error(e);
+      if (!silent) alert("Matching failed");
+    } finally {
+      setMatching(false);
+    }
+  };
+
   useEffect(() => {
     loadStats();
   }, []);
+
+  // Auto-match once on first load if not run before
+  useEffect(() => {
+    if (!matchedRun && stats?.total_skus > 0) {
+      setMatchedRun(true);
+      runMatching(true); // silent
+    }
+  }, [stats]);
 
   useEffect(() => {
     loadItems();
@@ -125,6 +149,16 @@ export default function Inventory() {
                     {syncing ? "progress_activity" : "sync"}
                   </span>
                   {syncing ? "Syncing..." : "Sync Now"}
+                </button>
+                <button
+                  onClick={runMatching}
+                  disabled={matching}
+                  className="bg-secondary-container text-on-secondary-container px-5 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg disabled:opacity-50"
+                >
+                  <span className={`material-symbols-outlined text-sm ${matching ? "animate-spin" : ""}`}>
+                    {matching ? "progress_activity" : "find_replace"}
+                  </span>
+                  {matching ? "Matching..." : "Match Products"}
                 </button>
                 <button
                   onClick={async () => {
@@ -290,16 +324,18 @@ export default function Inventory() {
                         <td className="px-6 py-4 text-sm text-on-surface-variant">{item.brand || "—"}</td>
                         <td className="px-6 py-4 text-sm">
                           <span className={`px-2 py-1 rounded text-xs font-bold ${
-                            item.source === "SHOPIFY" ? "bg-tertiary-container text-on-tertiary-container" : "bg-primary-container text-on-primary-container"
+                            item.source === "SHOPIFY" 
+                              ? "bg-blue-100 text-blue-800" 
+                              : "bg-orange-100 text-orange-800"
                           }`}>
                             {item.source === "SHOPIFY" ? "Shopify" : "Amazon"}
                           </span>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            item.status === "Flagged" ? "bg-error text-on-error" :
-                            item.status === "Monitoring" ? "bg-warning text-on-warning" :
-                            "bg-tertiary-container text-on-tertiary-container"
+                            item.status === "Flagged" ? "bg-red-100 text-red-800" :
+                            item.status === "Monitoring" ? "bg-yellow-100 text-yellow-800" :
+                            "bg-green-100 text-green-800"
                           }`}>
                             {item.status}
                           </span>
