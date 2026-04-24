@@ -48,6 +48,29 @@ export default function ReportsEvidence() {
     }
   };
 
+  const handleExportProof = async () => {
+    try {
+      const res = await api.get("/reports/export/proof-of-action");
+      // Open in new window for printing/saving
+      const blob = new Blob([res.data.html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleExportEvidence = async () => {
+    try {
+      const res = await api.get("/reports/export/evidence");
+      const blob = new Blob([res.data.html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
@@ -236,9 +259,20 @@ export default function ReportsEvidence() {
                   </span>
                   Export Center: Proof of Action
                 </h2>
-                <span className="text-[10px] font-black text-on-surface-variant uppercase bg-surface-container-high px-2 py-1 rounded">
-                  Real-Time Ledger
-                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExportProof}
+                    className="bg-primary text-on-primary px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90"
+                  >
+                    Export Proof of Action
+                  </button>
+                  <button
+                    onClick={handleExportEvidence}
+                    className="bg-secondary-container text-on-secondary-container px-4 py-2 rounded-lg text-sm font-bold hover:opacity-90"
+                  >
+                    Export Evidence
+                  </button>
+                </div>
               </div>
               <div className="bg-surface-container-lowest shadow-sm overflow-hidden">
                 <table className="w-full text-left border-collapse">
