@@ -1,0 +1,1 @@
+# Stub — real models created after schema is finalized

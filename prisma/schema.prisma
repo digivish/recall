@@ -1,0 +1,254 @@
+// Prisma schema — PostgreSQL
+// Single source of truth for all tables
+
+generator client {
+  provider = "prisma-client-py"
+  output    = "../backend/app/db/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id               String   @id @default(uuid())
+  name             String
+  slug             String   @unique
+  plan_tier        PlanTier @default(FREE)
+  stripe_customer_id String? @unique
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  users         User[]
+  integrations Integration[]
+  skus         Sku[]
+  incidents    SkuIncident[]
+  alerts       Alert[]
+  audit_logs   AuditLog[]
+  subscription Subscription?
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password_hash String
+  full_name    String
+  role         UserRole @default(MEMBER)
+  org_id       String
+  org          Organization @relation(fields: [org_id], references: [id])
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  resolved_incidents SkuIncident[] @relation("ResolvedBy")
+  audit_logs         AuditLog[]
+
+  @@index([org_id])
+}
+
+enum UserRole {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+enum PlanTier {
+  FREE
+  STANDARD
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+model Integration {
+  id             String   @id @default(uuid())
+  org_id         String
+  org            Organization @relation(fields: [org_id], references: [id])
+  type           IntegrationType
+  credentials   Json     // encrypted JSON
+  status         IntegrationStatus @default(DISCONNECTED)
+  connected_at  DateTime?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@index([org_id])
+}
+
+enum IntegrationType {
+  AMAZON_SP_API
+  SHOPIFY
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+model Sku {
+  id       String   @id @default(uuid())
+  org_id   String
+  org      Organization @relation(fields: [org_id], references: [id])
+  asin     String?
+  upc     String?
+  ean     String?
+  brand   String?
+  model   String?
+  name    String
+  source  String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  incidents SkuIncident[]
+
+  @@unique([org_id, asin])
+  @@index([org_id])
+}
+
+model RecallSource {
+  id          String   @id @default(uuid())
+  source_name SourceName
+  base_url   String
+  api_key    String?
+  last_fetched DateTime?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  recalls Recall[]
+}
+
+enum SourceName {
+  HEALTH_CANADA
+  FDA_FOOD
+  FDA_DRUG
+  FDA_DEVICE
+  CPSC
+}
+
+model Recall {
+  id                  String   @id @default(uuid())
+  source_id           String
+  source              RecallSource @relation(fields: [source_id], references: [id])
+  external_id         String
+  title               String
+  source_url          String?
+  issuing_body        String?
+  product_name        String?
+  hazard_description String? @db.Text
+  category           String?
+  severity           RecallSeverity
+  recommended_action String? @db.Text
+  published_at        DateTime?
+  raw_json            Json?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  incidents SkuIncident[]
+
+  @@unique([source_id, external_id])
+  @@index([source_id])
+  @@index([published_at])
+}
+
+enum RecallSeverity {
+  CRITICAL
+  AMBER
+  MONITORING
+}
+
+model SkuIncident {
+  id             String   @id @default(uuid())
+  sku_id         String
+  sku            Sku      @relation(fields: [sku_id], references: [id])
+  recall_id      String
+  recall         Recall   @relation(fields: [recall_id], references: [id])
+  org_id         String
+  org            Organization @relation(fields: [org_id], references: [id])
+  severity       RecallSeverity
+  status         IncidentStatus @default(OPEN)
+  auto_paused    Boolean @default(false)
+  acknowledged_at DateTime?
+  resolved_at    DateTime?
+  resolved_by_id String?
+  resolved_by    User?    @relation("ResolvedBy", fields: [resolved_by_id], references: [id])
+  notes          String?  @db.Text
+  created_at     DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  alerts Alert[]
+
+  @@unique([sku_id, recall_id])
+  @@index([org_id, severity, status])
+  @@index([sku_id])
+}
+
+enum IncidentStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+model Alert {
+  id          String   @id @default(uuid())
+  org_id      String
+  org         Organization @relation(fields: [org_id], references: [id])
+  incident_id String
+  incident    SkuIncident @relation(fields: [incident_id], references: [id])
+  channel     AlertChannel
+  recipient   String
+  payload     Json?
+  sent_at     DateTime?
+  delivered   Boolean @default(false)
+  created_at  DateTime @default(now())
+
+  @@index([org_id])
+}
+
+enum AlertChannel {
+  EMAIL
+  SMS
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  org_id     String
+  org        Organization @relation(fields: [org_id], references: [id])
+  user_id    String?
+  user       User?    @relation(fields: [user_id], references: [id])
+  action     String
+  metadata   Json?
+  created_at DateTime @default(now())
+
+  @@index([org_id, created_at DESC])
+}
+
+model SubscriptionPlan {
+  id             String   @id @default(uuid())
+  name           PlanTier @unique
+  price_usd      Int      // cents
+  sku_limit      Int
+  features       Json?
+  stripe_price_id String?
+  created_at     DateTime @default(now())
+}
+
+model Subscription {
+  id                    String   @id @default(uuid())
+  org_id               String   @unique
+  org                  Organization @relation(fields: [org_id], references: [id])
+  plan_id              String
+  plan                 SubscriptionPlan @relation(fields: [plan_id], references: [id])
+  stripe_subscription_id String? @unique
+  status               SubscriptionStatus @default(TRIAGING)
+  current_period_end  DateTime?
+  grace_until         DateTime?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+}
+
+enum SubscriptionStatus {
+  TRIAGING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}

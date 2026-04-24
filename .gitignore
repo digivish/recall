@@ -1,0 +1,32 @@
+# Byte-compiled files
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtualenv
+.env
+.env.example
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Logs
+logs/
+
+# DB
+*.db
+*.sqlite3
+
+# Design
+design/
+.gstack/
+recall-hero/
